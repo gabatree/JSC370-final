@@ -1,0 +1,20 @@
+---
+title: "Interactive Visualizations"
+output: html_document
+---
+
+# Interactive Visualizations
+
+Below are three interactive visualizations related to the project:
+
+## 1. Accident Frequency by Month
+
+```{r, echo=FALSE}
+library(plotly)
+# 示例用的简单图
+fig <- plot_ly(
+  x = c('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'),
+  y = c(500, 600, 700, 800, 1000, 1100, 1200, 1300, 900, 700, 600, 500),
+  type = 'bar'
+)
+fig

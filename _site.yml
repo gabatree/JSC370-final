@@ -1,0 +1,9 @@
+name: "Weather and Traffic Accidents"
+navbar:
+  title: "Toronto Traffic Safety"
+  left:
+    - text: "Home"
+      href: index.html
+    - text: "Visualizations"
+      href: visualizations.html
+output_dir: "docs"

@@ -1,0 +1,30 @@
+---
+title: "Weather and Traffic Accidents in Toronto"
+output: html_document
+---
+
+# Project Overview
+
+This study explores how weather conditions impact traffic accidents in Toronto from 2006 to 2023, focusing on temperature and precipitation effects.
+
+Key findings:
+- Accident counts peak in summer months, especially August.
+- Rainy days see fewer accidents, but injury severity distribution remains similar.
+- Weather variables alone are insufficient for accurate prediction of accident severity.
+
+[📄 **Download Full Report (PDF)**](Final.pdf)
+
+# Introduction
+
+Weather conditions such as rain, snow, and temperature extremes can significantly impact road safety. In this project, we combined accident records from the Toronto Police Service with historical weather data to explore how environmental factors correlate with accident frequency and severity.
+
+# Main Findings
+
+- **Monthly Accident Trends:** More accidents occur during warmer months.
+- **Temperature vs Fatalities:** Higher temperatures show a slight increase in accident numbers.
+- **Weather and Injury Severity:** Rain reduces the number of accidents but not injury severity.
+- **Modeling:** Random Forest models show limited predictive power using only weather variables.
+
+# Limitations
+
+- Traffic volume, driver behavior, and other contextual factors were not available in the dataset, which likely also affect accident severity.
