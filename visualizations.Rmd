@@ -2,19 +2,109 @@
 title: "Interactive Visualizations"
 output: html_document
 ---
-
-# Interactive Visualizations
-
-Below are three interactive visualizations related to the project:
-
-## 1. Accident Frequency by Month
-
-```{r, echo=FALSE}
+```{r, message=FALSE, warning=FALSE}
+library(dplyr)
 library(plotly)
-# 示例用的简单图
-fig <- plot_ly(
-  x = c('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'),
-  y = c(500, 600, 700, 800, 1000, 1100, 1200, 1300, 900, 700, 600, 500),
-  type = 'bar'
+library(leaflet)
+library(crosstalk)
+library(lubridate)
+```
+# Interactive Visualizations
+```{r,echo = FALSE,warning=FALSE, message=FALSE, error=FALSE}
+invisible(Sys.setlocale("LC_TIME", "C"))
+df_final <- read.csv("data/df_final.csv")
+```
+
+## 1. Accident Map in Toronto
+
+```{r,echo = FALSE,warning=FALSE, message=FALSE, error=FALSE}
+df_final <- df_final %>%
+  mutate(
+    INJURY_SCORE = case_when(
+      INJURY == "None" ~ 0,
+      INJURY == "Minor" ~ 1,
+      INJURY == "Major" ~ 2,
+      INJURY == "Fatal" ~ 3,
+      TRUE ~ 0
+    ),
+    TOTAL_CASUALTIES = ifelse(is.na(FATAL_NO), 0, FATAL_NO) + INJURY_SCORE
+  )
+
+map_data <- df_final %>%
+  filter(!is.na(LATITUDE) & !is.na(LONGITUDE)) %>%
+  slice_head(n = 800)
+
+leaflet(map_data) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    lng = ~LONGITUDE,
+    lat = ~LATITUDE,
+    radius = ~pmax(2, TOTAL_CASUALTIES),
+    fillColor = ~ifelse(TOTAL_CASUALTIES > 0, "red", "blue"),
+    color = NA,
+    stroke = FALSE,
+    fillOpacity = 0.7,
+    clusterOptions = markerClusterOptions()
+  )
+```
+This interactive map displays 800 traffic accidents in Toronto using cluster-based visualization. Each circle represents a group of accidents that occurred in close geographic proximity. The number inside the circle indicates the number of incidents within that cluster, and the color reflects the density—green for fewer accidents, red for higher concentrations.
+  
+At the regional level, high-density clusters appear along major highways and around Toronto’s downtown core. City-wide clusters highlight overall hotspots such as the downtown core, Mississauga border, and Scarborough. The mid-level views reveal emerging clusters near arterial roads and transit corridors. And in neighborhood-level views, like University of Toronto, Queen Street, expose fine-grained groupings of accidents, including micro-hotspots near intersections and high-traffic pedestrian zones.
+
+This progressive zoom interaction provides layered insights, from macro traffic risk zones to micro-level collision clusters, enhancing the interpretability of the accident data.
+
+## 2.Distribution of Accident Injury Types by Environmental Conditions
+```{r,echo = FALSE,warning=FALSE, message=FALSE, error=FALSE}
+# 创建 SharedData 让 plot 和 filters 绑定
+shared_df <- SharedData$new(df_final)
+
+# 添加交互 filter 控件
+bscols(
+  widths = c(12),
+  filter_select("lightfilter", "Select Light Condition:", shared_df, ~LIGHT, multiple = TRUE),
+  filter_select("rainfilter", "Select Rain Condition:", shared_df, ~RAINY_DAY, multiple = TRUE),
+  filter_select("roadfilter", "Select Road Surface:", shared_df, ~RDSFCOND, multiple = TRUE)
 )
-fig
+
+# 画图：横轴为 INJURY 分类变量
+plot_ly(shared_df,
+        x = ~INJURY,
+        type = "histogram",
+        color = ~INJURY) %>%
+  layout(
+    barmode = "stack",
+    title = "Injury Level Distribution under Filtered Conditions",
+    xaxis = list(title = "Injury Type"),
+    yaxis = list(title = "Accident Count")
+  )
+```
+  
+This interactive bar chart displays the number of traffic accidents by injury severity level—“Fatal”, “Major”, “Minor”, and “None”. Users can filter the data using dropdowns to view how injury type distributions vary across different lighting conditions, precipitation status, and road surface conditions.  
+The chart reveals that the majority of traffic accidents result in “Minor” or “No” injuries. However, under adverse conditions such as darkness, rainfall, or wet/snowy roads, the proportion of “Major” and “Fatal” injuries tends to increase. The interactive filters enable users to explore how environmental factors influence injury severity, providing a flexible way to identify high-risk scenarios.
+
+## 3.Monthly Trends of Accident Injuries by Type
+```{r,echo = FALSE,warning=FALSE, message=FALSE, error=FALSE}
+monthly_data <- df_final %>%
+  mutate(Month = month(DATE, label = TRUE, abbr = TRUE)) %>%
+  group_by(Month, INJURY) %>%
+  summarise(Count = n(), .groups = "drop")
+
+# 绘制交互多线图
+plot_ly(monthly_data,
+        x = ~Month,
+        y = ~Count,
+        color = ~INJURY,
+        type = 'scatter',
+        mode = 'lines+markers',
+        text = ~paste("Injury Type:", INJURY,
+                      "<br>Month:", Month,
+                      "<br>Count:", Count),
+        hoverinfo = 'text') 
+
+```
+  
+This interactive line chart displays the number of traffic accidents per month, grouped by injury severity categories including “Fatal”, “Major”, “Minor”, “Minimal”, “None”, and “Unknown”. And you can click on the legend to isolate specific categories, allowing for a focused view of individual trends.  
+The chart highlights a clear seasonal pattern: less severe injury categories such as “None” and “Major” peak in the summer months, particularly August, which may reflect increased road usage. In contrast, “Fatal” and “Minor” injuries remain relatively stable throughout the year, with occasional fluctuations. The interactive legend allows users to selectively explore each category, enhancing the interpretability of long-term trends across injury types.
+
+
+
