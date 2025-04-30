@@ -1,0 +1,437 @@
+---
+title: "Weather and Traffic Accidents in Toronto"
+author: "Kaiwen Zhang"
+output: 
+  pdf_document:
+    toc: true
+    number_sections: true
+    latex_engine: xelatex
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE}
+library(tidyverse)
+library(readr)
+library(httr)
+library(jsonlite)
+library(lubridate)
+library(dplyr)
+library(knitr)
+library(kableExtra)
+library(ggplot2)
+library(lubridate)
+library(caret)
+library(randomForest)
+library(ROSE)
+library(xgboost)
+library(mgcv)
+```
+```{r, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE, eval=FALSE}
+df_ksi <- read_csv("AUTO.csv")
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE, eval=FALSE}
+df_ksi <- df_ksi %>%
+  mutate(DATE = mdy_hms(DATE)) %>%
+  mutate(DATE = as.Date(DATE))
+df_ksi_clean <- df_ksi %>%
+  select(DATE, TIME, LATITUDE, LONGITUDE, 
+         VISIBILITY, LIGHT, RDSFCOND, 
+         INJURY, FATAL_NO) %>%
+  mutate(
+    TIME = sprintf("%04d", TIME),
+    TIME = paste0(substr(TIME, 1, 2), ":", substr(TIME, 3, 4)),
+    FATAL_NO = replace_na(FATAL_NO, 0),
+    VISIBILITY = replace_na(VISIBILITY, "Unknown"),
+    LIGHT = replace_na(LIGHT, "Unknown"),
+    RDSFCOND = replace_na(RDSFCOND, "Unknown"),
+    INJURY = replace_na(INJURY, "Unknown")
+  )
+
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE, eval=FALSE, eval=FALSE}
+get_weather_for_year <- function(year) {
+  start_date <- paste0(year, "-01-01")
+  end_date <- paste0(year, "-12-31")
+  
+  url <- paste0(
+    "https://archive-api.open-meteo.com/v1/era5?",
+    "latitude=43.7&longitude=-79.42",
+    "&hourly=temperature_2m,precipitation",
+    "&timezone=America/Toronto",
+    "&start_date=", start_date,
+    "&end_date=", end_date
+  )
+  
+  response <- GET(url)
+  
+  if (status_code(response) != 200) {
+    message("fail with code：", status_code(response))
+    return(NULL)
+  }
+  
+  response_content <- content(response, "text")
+  weather_data <- fromJSON(response_content)$hourly
+  
+  
+  weather_df <- data.frame(
+    DATETIME = as.POSIXct(weather_data$time, format = "%Y-%m-%dT%H:%M", tz = "America/Toronto"),
+    TEMP = weather_data$temperature_2m,
+    PRECIP = weather_data$precipitation
+  ) %>%
+    mutate(DATE = as.Date(DATETIME)) %>%
+    group_by(DATE) %>%
+    summarise(
+      TEMP_MAX = max(TEMP, na.rm = TRUE),
+      TEMP_MIN = min(TEMP, na.rm = TRUE),
+      PRECIPITATION = sum(PRECIP, na.rm = TRUE)
+    )
+  
+  return(weather_df)
+}
+
+start_year <- year(min(df_ksi$DATE, na.rm = TRUE))
+end_year <- year(max(df_ksi$DATE, na.rm = TRUE))
+
+weather_dfs <- map(start_year:end_year, get_weather_for_year)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE,eval=FALSE, eval=FALSE}
+weather_df <- bind_rows(weather_dfs)
+
+
+df_final <- df_ksi_clean %>%
+  left_join(weather_df, by = "DATE")
+```
+```{r, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE,eval=FALSE}
+remove_outliers <- function(data, column) {
+  Q1 <- quantile(data[[column]], 0.25, na.rm = TRUE)
+  Q3 <- quantile(data[[column]], 0.75, na.rm = TRUE)
+  IQR_value <- Q3 - Q1
+  
+  # Define lower and upper bounds
+  lower_bound <- Q1 - 1.5 * IQR_value
+  upper_bound <- Q3 + 1.5 * IQR_value
+  
+  # Filter out outliers
+  data %>% filter(data[[column]] >= lower_bound & data[[column]] <= upper_bound)
+}
+
+# Apply outlier removal to key numeric variables
+df_final <- df_final %>%
+  remove_outliers("TEMP_MIN") %>%
+  remove_outliers("TEMP_MAX") %>%
+  remove_outliers("PRECIPITATION")
+
+```
+
+```{r,echo = FALSE,warning=FALSE, message=FALSE, error=FALSE}
+df_final <- read.csv("data/df_final.csv")
+```
+# Introduction
+## How Weather Affects Driving Safety in Toronto
+Road safety is a critical public concern, particularly in large urban areas such as Toronto, where thousands of traffic accidents are reported each year. While various factors such as driver behavior, infrastructure, and vehicle conditions are well-documented contributors to collisions, weather conditions may also play a significant role in influencing accident frequency and severity. Adverse weather—including heavy rain, snow, fog, and extreme temperatures—can impair visibility, reduce tire traction, and alter road surface conditions, thereby increasing the likelihood of accidents. For instance, rain can cause hydroplaning, icy roads may lead to skidding, and fog can delay driver reactions due to limited sight distance.
+
+This study investigates the relationship between weather conditions and traffic accident outcomes in Toronto between 2006 and 2023. Using data from the Toronto Police Service Public Safety Data Portal and historical weather records from the Open-Meteo ERA5 archive, we combine reported accident records with corresponding daily meteorological information. The objective is to explore whether certain weather patterns—such as precipitation levels and temperature extremes—are significantly associated with accident frequency or severity.
+
+We specifically examines the following questions:  
+1. Does increased precipitation correlate with a higher number of accidents?  
+2. Are colder temperatures associated with more severe or fatal crashes?  
+3. Do seasonal variations influence the distribution and outcomes of traffic accidents?
+
+Through data visualization, statistical testing, and regression modeling, the study aims to determine the extent to which weather influences driving safety and to provide insights that may inform traffic policy, driver advisories, and infrastructure planning in urban settings.
+
+
+# Methods
+
+This study utilizes two primary datasets: (1) a record of motor vehicle collisions in Toronto from 2006 to 2023, obtained from the Toronto Police Service Public Safety Data Portal, and (2) historical weather data retrieved from the Open-Meteo ERA5 archive. The accident dataset contains attributes such as date, time, location, visibility, lighting condition, road surface condition, injury severity, and number of fatalities. The weather data provides hourly records of temperature and precipitation in Toronto.
+
+## Data Preparation
+
+The accident dataset was cleaned by filtering relevant variables (`DATE`, `TIME`, `LATITUDE`, `LONGITUDE`, `VISIBILITY`, `LIGHT`, `RDSFCOND`, `INJURY`, `FATAL_NO`) and reformatting the time field into HH:MM format. Missing values were imputed,  `FATAL_NO` was set to 0 if missing, while categorical variables were filled with `"Unknown"`. Outliers in temperature and precipitation were removed using the IQR method.
+
+The weather dataset was aggregated by day, calculating minimum and maximum temperatures and total precipitation per day. These daily summaries were merged with the accident data by date, resulting in a unified dataset with aligned temporal features.
+
+Several derived variables were created:  
+- `TEMP_AVG`: the average of `TEMP_MIN` and `TEMP_MAX`  
+- `RAINY_DAY`: a binary indicator for whether precipitation occurred  
+- `FATAL_YES`: binary outcome for logistic modeling  
+- `INJURY_BIN`: binary variable indicating whether the injury was severe (Fatal or Major)  
+
+These variables allowed for both exploratory comparisons and classification modeling.
+
+## Data Exploration and Statistical Testing
+
+Exploratory data analysis) was conducted using R and the ggplot2 and dplyr packages. Visualizations such as monthly accident bar charts, scatter plots of temperature versus fatalities, and stacked bar plots of injury level by weather condition were used to identify seasonal patterns and correlations.
+
+We conducted t-tests to compare accident frequency on rainy versus dry days and linear regression to test the relationship between average daily temperature and the number of accidents. For instance, the regression of Total_Accidents and TEMP_AVG produced a statistically significant coefficient (p < 0.05), suggesting a positive association between temperature and accident frequency.
+
+To further assess predictive relationships, a Random Forest classifier was trained to predict the risk of severe injury using weather and environmental factors as predictors. Random Forest is a popular ensemble machine learning algorithm used for both classification and regression tasks. It operates by building multiple decision trees and combining their predictions to improve accuracy and reduce overfitting. Each tree is trained on a random subset of the data and features, making the model robust and less sensitive to noise or individual outliers. The model is bulid using these variabls:
+
+```{r, echo = FALSE,warning=FALSE, message=FALSE, error=FALSE}
+variable_description <- tibble(
+  Variable = c("INJURY_BIN", "TEMP_MIN", "TEMP_MAX", "PRECIPITATION", 
+               "VISIBILITY", "LIGHT", "RDSFCOND", "RAINY_DAY"),
+  Description = c(
+    "Binary outcome variable: 'Severe' (Fatal or Major injuries) or 'NotSevere'",
+    "Minimum temperature on the day of the accident (°C)",
+    "Maximum temperature on the day of the accident (°C)",
+    "Total precipitation on the day of the accident (mm)",
+    "Visibility conditions (e.g., Clear, Snow, Rain)",
+    "Lighting conditions (e.g., Daylight, Dusk, Artificial Light)",
+    "Road surface conditions (e.g., Dry, Wet, Snow, Ice)",
+    "Categorical variable: 'Rainy' if precipitation > 0, otherwise 'Dry'"
+  )
+)
+
+kable(variable_description, caption = "") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+```
+
+The dataset was split into training and testing sets using a 70/30 ratio to ensure that model evaluation was based on unseen data. The performance of the Random Forest model was evaluated using accuracy, precision, and recall metrics, based on a test dataset. A confusion matrix was used to summarize prediction results, and a variable importance plot was generated to identify the most influential features contributing to injury severity.
+
+To improve class balance and enhance model performance, we also tested ROSE (Random Over-Sampling Examples). ROSE synthetically generates new samples by creating convex combinations of nearby observations, helping to balance class distribution while introducing variation.
+
+# Results
+## Exploratory Data Analysis
+
+```{r, echo = FALSE,warning=FALSE, message=FALSE, error=FALSE}
+# Create a summary table for df_final
+df_info <- tibble(
+  "Dataset Name" = "df_final",
+  "Number of Rows" = nrow(df_final),
+  "Number of Columns" = ncol(df_final)
+)
+
+# Display the table with boxed style
+kable(df_info, caption = "Table 1 - Dataset Dimensions and Column Names", escape = TRUE)
+
+
+```
+
+```{r, echo = FALSE,warning=FALSE, message=FALSE, error=FALSE}
+# Extract summary statistics
+df_summary_table <- df_final %>%
+  summarise(
+    Min_Temp = min(TEMP_MIN, na.rm = TRUE),
+    Median_Temp = median(TEMP_MIN, na.rm = TRUE),
+    Mean_Temp = mean(TEMP_MIN, na.rm = TRUE),
+    Max_Temp = max(TEMP_MAX, na.rm = TRUE),
+    
+    Min_Precip = min(PRECIPITATION, na.rm = TRUE),
+    Median_Precip = median(PRECIPITATION, na.rm = TRUE),
+    Mean_Precip = mean(PRECIPITATION, na.rm = TRUE),
+    Max_Precip = max(PRECIPITATION, na.rm = TRUE),
+
+    Min_Fatal = min(FATAL_NO, na.rm = TRUE),
+    Median_Fatal = median(FATAL_NO, na.rm = TRUE),
+    Mean_Fatal = mean(FATAL_NO, na.rm = TRUE),
+    Max_Fatal = max(FATAL_NO, na.rm = TRUE)
+  ) %>%
+  pivot_longer(cols = everything(), names_to = "Statistic", values_to = "Value")
+
+df_summary_table <- df_summary_table %>%
+  mutate(Value = round(Value, 2))
+# Create a clean formatted table
+kable(df_summary_table, caption = "Table 2 - Summary of Key Variables", escape = TRUE)
+
+```
+  
+From table 1 and table 2 we can see that the final data set includes 14,711 records and 12 key variables, including accident date, time, location, road conditions , injury severity, and weather data. Temperature ranges from -23.7°C to 33.6°C, with a median of 7.1°C, indicating a broad distribution of accidents across different weather conditions. Precipitation varies from 0 mm to 4.7 mm, with a mean of 0.59 mm. Fatal accidents range from 0 to 78 fatalities per incident, with a mean of 1.23 fatalities, suggesting most accidents do not result in fatalities. The data all seems reasonable with no extreme value.
+
+```{r fig_monthly_accidents, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE}
+df_final %>%
+  mutate(MONTH = month(DATE, label = TRUE, locale = "en_US")) %>% 
+  group_by(MONTH) %>%
+  summarise(Total_Accidents = n()) %>%
+  ggplot(aes(x = MONTH, y = Total_Accidents, fill = MONTH)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Fig 1 - Accident Frequency by Month", x = "Month", y = "Total Accidents") +
+  theme_minimal()
+```
+  
+From Fig 1, the bar graph of the total accidents in each month, we can see that The the accident frequency changes between month. The accident frequencies generally increasing during the warmer months, peaking in August, and then gradually decreasing towards the winter months. The trend suggests that summer months experience a higher volume of accidents, possibly due to increased road usage, while winter months show slightly lower accident rates, potentially due to cautious driving behavior or fewer vehicles on the road. 
+```{r, echo = FALSE,warning=FALSE, message=FALSE, error=FALSE}
+
+ggplot(df_final %>% filter(FATAL_NO > 0) %>% mutate(TEMP_AVG = (TEMP_MIN + TEMP_MAX) / 2), 
+       aes(x = TEMP_AVG, y = FATAL_NO)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(title = "Fig 2 - Average Temperature vs. Fatal Accidents",
+       x = "Average Temperature (°C)",
+       y = "Number of Fatalities") +
+  theme_minimal()
+
+```
+Moving on to Fig 2, the scatter plot presents the relationship between average daily temperature and the number of fatalities. At first glance, there appears to be a slight upward trend—indicating that higher temperatures may be associated with more fatalities. This pattern aligns with what we observed in Fig 1, where summer months experience more accidents overall. 
+  
+```{r, echo = FALSE,warning=FALSE, message=FALSE, error=FALSE}
+df_final %>%
+  filter(FATAL_NO > 0) %>%
+  mutate(TEMP_AVG = (TEMP_MIN + TEMP_MAX) / 2) %>%
+  mutate(FATAL_TYPE = ifelse(FATAL_NO >= 30, "High Fatal", "Low Fatal")) %>%
+  ggplot(aes(x = TEMP_AVG, y = FATAL_NO, color = FATAL_TYPE)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Fig 2b - Stratified Fatal Accidents by Temperature",
+       x = "Average Temperature (°C)",
+       y = "Number of Fatalities") +
+  theme_minimal()
+```
+  
+To further investigate this relationship, we stratified the fatal accident cases into “High Fatal” (≥30 fatalities) and “Low Fatal” (<30 fatalities) groups, shown in Fig 2b. This stratification reveals two distinct trends:
+  
+High-fatality accidents tend to occur more frequently at lower temperatures, with a decreasing trend as temperature rises.
+  
+In contrast, low-fatality accidents increase with temperature, following a clear positive trend.
+  
+These findings suggest that while warmer weather may correlate with more frequent, less severe fatal accidents, colder temperatures may contribute to fewer but more catastrophic events—potentially due to road icing or multi-vehicle pileups during winter storms. This nuanced relationship underscores the value of stratification in understanding how weather interacts with crash severity, and it warrants further modeling to explore interaction effects and underlying causes.
+
+```{r t_test_table, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE}
+df_accidents_per_day <- df_final %>%
+  group_by(DATE) %>%
+  summarise(Total_Accidents = n(), TEMP_AVG = mean(TEMP_AVG, na.rm = TRUE))
+lm_model <- lm(Total_Accidents ~ TEMP_AVG, data = df_accidents_per_day)
+
+# Extract key statistics
+lm_summary <- broom::tidy(lm_model)
+# Display results as a formatted table
+lm_summary <- lm_summary %>%
+  mutate(across(where(is.numeric), ~ round(., 2)))
+kable(lm_summary, caption = "Table 3 - Linear Regression Results", booktabs = TRUE, escape = TRUE)
+
+```
+  
+Table 3 shows the results of a linear regression model examining the relationship between average daily temperature and the number of accidents. The coefficient for TEMP_AVG is positive and statistically significant (p < 0.05), indicating that each 1°C increase in temperature is associated with an estimated 0.023 increase in daily accident counts. Although the effect size is small, it suggests a measurable association between temperature and accident frequency.
+  
+```{r, echo = FALSE,warning=FALSE, message=FALSE, error=FALSE}
+ggplot(df_final, aes(x = RAINY_DAY, fill = INJURY)) +
+  geom_bar(position = "stack", color = "black") +  # Add black border lines for clarity
+  labs(title = "Fig 3 - Injury Levels on Rainy vs. Dry Days",
+       x = "Weather Condition",
+       y = "Number of Accidents",
+       fill = "Injury Level") +
+  theme_minimal() +
+  scale_fill_manual(values = c(
+    "Fatal" = "red",     # Dark Red
+    "Major" = "#fc8d59",     # Orange
+    "Minimal" = "#fee08b",   # Yellow
+    "Minor" = "#91cf60",     # Light Green
+    "None" = "#1a9850",      # Dark Green
+    "Unknown" = "#377eb8"    # Blue
+  ))
+
+```
+  
+Fig 3 compares the number of accidents with different injury levels under rainy and dry conditions. The results indicate that more accidents occur on dry days compared to rainy days. However, the proportion of severe injuries appears similar across both conditions, suggesting that while rainy days has less total accidents, it does not necessarily decrease the severity of injuries. And the larger number of accidents on dry day could because there are more dry days than rainy days.
+
+## Model Evaluation
+While visualizations provide insight into trends and distributions, more advanced modeling is necessary to assess the predictive value of weather and road conditions on accident severity. Next, we implement a Random Forest classifier to evaluate which factors most contribute to the likelihood of severe injuries.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE}
+df_final <- df_final %>%
+  filter(INJURY != "Unknown") %>%
+  mutate(INJURY_BIN = ifelse(INJURY %in% c("Fatal", "Major"), "Severe", "NotSevere"),
+         INJURY_BIN = as.factor(INJURY_BIN))
+
+df_rf <- df_final %>%
+  select(INJURY_BIN, TEMP_MIN, TEMP_MAX, PRECIPITATION, VISIBILITY, LIGHT, RDSFCOND,RAINY_DAY) %>%
+  mutate(across(where(is.character), as.factor))
+
+set.seed(123)
+train_index <- createDataPartition(df_rf$INJURY_BIN, p = 0.7, list = FALSE)
+train_data <- df_rf[train_index, ]
+test_data <- df_rf[-train_index, ]
+
+rf_model <- randomForest(INJURY_BIN ~ ., data = train_data, ntree = 100, importance = TRUE)
+pred_rf <- predict(rf_model, newdata = test_data)
+```
+  
+A Random Forest classification model was first trained to predict whether a traffic accident would result in severe injuries (defined as "Fatal" or "Major" injuries). The model used weather and environmental factors such as temperature, precipitation, road surface condition, visibility, and lighting condition as predictors.
+
+The performance metrics of the model are summarized in Table 4:
+```{r, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE}
+cm <- confusionMatrix(pred_rf, test_data$INJURY_BIN)
+
+metrics <- tibble(
+  Accuracy = cm$overall["Accuracy"],
+  Kappa = cm$overall["Kappa"],
+  Sensitivity = cm$byClass["Sensitivity"],
+  Specificity = cm$byClass["Specificity"],
+  `Pos Pred Value` = cm$byClass["Pos Pred Value"],
+  `Neg Pred Value` = cm$byClass["Neg Pred Value"],
+  `Balanced Accuracy` = cm$byClass["Balanced Accuracy"]
+)
+metrics <- metrics %>%
+  mutate(across(where(is.numeric), ~ round(., 2)))
+kable(metrics, caption = "Table 4 - Evaluation Metrics of Random Forest Model", escape = TRUE)
+```
+  
+While the model achieved a seemingly reasonable accuracy (52.4%), this metric is misleading due to the imbalanced distribution of severe vs. non-severe cases. The very low specificity (3.7%) indicates the model predicts nearly everything as “NotSevere”, and failing to identify the non-severe cases. This is also reflected in the Kappa score (-0.103), which suggests that the classifier is not performing better than random guessing. The Balanced Accuracy (0.454), which takes into account both classes equally, also showing the model’s poor performance.
+Since the data is unbalanced, the model would mostly predict “NotSevere”, I decided to use ROSE to balance the data first and then train the model using the balanced dataset.
+```{r, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE}
+df_final <- df_final %>%
+  filter(INJURY != "Unknown") %>%
+  mutate(INJURY_BIN = ifelse(INJURY %in% c("Fatal", "Major"), "Severe", "NotSevere"),
+         INJURY_BIN = as.factor(INJURY_BIN))
+df_rf <- df_final %>%
+  select(INJURY_BIN, TEMP_MIN, TEMP_MAX, PRECIPITATION, VISIBILITY, LIGHT, RDSFCOND,RAINY_DAY) %>%
+  mutate(across(where(is.character), as.factor))
+set.seed(123)
+train_index <- createDataPartition(df_rf$INJURY_BIN, p = 0.7, list = FALSE)
+train_data <- df_rf[train_index, ]
+test_data <- df_rf[-train_index, ]
+
+rose_train <- ROSE(INJURY_BIN ~ ., data = train_data, seed = 1)$data
+
+rf_model2 <- randomForest(INJURY_BIN ~ ., data = rose_train, ntree = 100, importance = TRUE)
+pred_rf2 <- predict(rf_model2, newdata = test_data)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE}
+cm <- confusionMatrix(pred_rf2, test_data$INJURY_BIN)
+
+metrics <- tibble(
+  Accuracy = cm$overall["Accuracy"],
+  Kappa = cm$overall["Kappa"],
+  Sensitivity = cm$byClass["Sensitivity"],
+  Specificity = cm$byClass["Specificity"],
+  `Pos Pred Value` = cm$byClass["Pos Pred Value"],
+  `Neg Pred Value` = cm$byClass["Neg Pred Value"],
+  `Balanced Accuracy` = cm$byClass["Balanced Accuracy"]
+)
+metrics <- metrics %>%
+  mutate(across(where(is.numeric), ~ round(., 2)))
+kable(metrics, caption = "Table 5 - Evaluation Metrics of Random Forest Model After ROSE", escape = TRUE)
+```
+  
+From table 5, we can see several key differences between the Random Forest model trained on the original dataset and the one trained on the resampled data. Accuracy slightly improved from 52.5% to 53.0%. Kappa moved closer to 0, suggesting slightly improved agreement between the predicted and actual classes beyond chance. Specificity increased substantially from 3.8% to 21.9%, a notable improvement in identifying the "Severs" class. Balanced Accuracy, which considers both sensitivity and specificity, rose from 0.4543 to 0.4854, indicating fairer treatment of both classes. Although sensitivity decreased slightly, this trade-off allowed the model to better capture severe injury cases. Positive Predictive Value and Negative Predictive Value both increased, reflecting improved precision and reliability of the predictions. 
+  
+After applying the ROSE, the Random Forest model exhibited a slight improvement in performance. However, the overall predictive performance remained limited, with accuracy just above 53% and a Kappa score still close to zero (-0.03), indicating minimal agreement beyond chance. While ROSE helped mitigate the class imbalance to a certain degree, the results suggest that weather-related variables alone may not be sufficient to effectively predict accident severity.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE}
+varImpPlot(rf_model2, main = "Fig 4 - Variable Importance from Random Forest")
+
+```
+  
+Fig 4 shows two measures of variable importance:
+The mean Decrease Accuracy on the left shows how much the model’s accuracy decreases when a given variable is randomly permuted. And the mean Decrease Gini represents the total reduction attributed to a variable across all trees in the forest. From the fig we can see that LIGHT and RDSFCOND (road surface condition) are the most important variables in terms of accuracy contribution. PRECIPITATION, TEMP_MAX, and TEMP_MIN rank highest based on the Gini index, suggesting that temperature and precipitation are frequently used to split the data in the trees. RAINY_DAY and VISIBILITY have relatively low importance in both metrics, implying they contribute less to the model’s decision-making process.
+  
+The results indicate that while weather-related variables like TEMP_MAX, TEMP_MIN, and PRECIPITATION do contribute to the prediction of injury severity, other contextual factors such as lighting and road surface conditions are potentially more critical in improving classification accuracy. However, their individual contributions remain modest, and other unobserved factors, such as driver behavior or traffic density, likely may play a significant role in determining accident severity. Overall, the predictive power of weather variables remains limited, suggesting that accident severity is likely driven by a more complex combination of behavioral, environmental, and infrastructural factors.
+
+
+## Conclusions and Summary:
+This study explored the impact of weather conditions—specifically temperature and precipitation—on traffic accident severity in Toronto from 2006 to 2023. The findings suggest that while weather does influence driving safety, the effects are nuanced and relatively modest.
+
+Monthly trends indicated that accidents peaked during the warmer months, particularly in August, likely due to increased road usage. A statistically significant but small positive relationship was found between average temperature and accident frequency, suggesting that as temperatures rise, accident counts slightly increase. However, the variance in fatal accident counts remained high across temperatures, indicating the influence of additional, unmeasured factors. Similarly, while more accidents occurred on dry days than on rainy ones, the distribution of injury severity remained consistent across conditions—suggesting that rain may reduce frequency but not necessarily severity.
+
+To assess predictive relationships, a Random Forest classification model was trained to distinguish between severe and non-severe injuries using environmental variables. The initial model suffered from class imbalance, achieving high sensitivity but very low specificity and Kappa scores near zero. After applying ROSE sampling to balance the training data, model specificity and balanced accuracy slightly improved. Nonetheless, the model’s overall predictive power remained limited, with accuracy hovering just above 53% and minimal improvement in class agreement. Variable importance analysis highlighted road surface condition and lighting as stronger predictors than weather metrics.
+
+In addition to Random Forest, other models such as logistic regression and gradient boosting were also tested. However, their performance was similarly limited, with low specificity and poor balanced accuracy, further reinforcing that weather variables alone may not be sufficient for effective injury severity prediction.
+
+These results suggest that weather variables alone are insufficient to reliably predict accident severity. More influential factors—such as traffic volume, time-of-day, driver behavior, or spatial features—were not available in this dataset but may significantly enhance model performance. 
+
+In conclusion, temperature and precipitation show some relationship with accident frequency and severity, but predictive models based on weather and road conditions alone offer limited utility. More comprehensive data and contextual factors are necessary to build effective accident risk prediction tools and guide evidence-based public safety interventions.
