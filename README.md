@@ -5,7 +5,7 @@ This project investigates how weather conditions (e.g., temperature, precipitati
 ## 🔗 Interactive Website
 
 Explore the full interactive website here:  
-https://gabatree.github.io/weather-traffic-toronto/
+https://gabatree.github.io/Weather-traffic-toronto/index.html
 
 The website includes:
 - A project overview and downloadable final report
@@ -15,8 +15,6 @@ The website includes:
   - Interactive bar chart of injury types by weather/light conditions
 
 ## Final Report (PDF)
-
-[Download the full report](Final.pdf)
 
 Includes methods, findings, modeling results, and interpretation.
 
