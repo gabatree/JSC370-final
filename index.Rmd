@@ -1,45 +1,115 @@
 ---
 title: "Weather and Traffic Accidents in Toronto"
+author: "Kaiwen Zhang"
 output: html_document
 ---
 
-# Overview
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, error = FALSE)
+library(tidyverse)
+library(ggplot2)
+library(kableExtra)
+library(lubridate)
+library(dplyr)
+```
 
-How do weather conditions affect road safety in a major urban environment?  
-This project investigates the relationship between **weather variables** (temperature, precipitation, visibility) and **traffic accident frequency and severity** in Toronto from 2006 to 2023. The study integrates historical weather data with accident reports from the Toronto Police Service.
+# Project Overview
+
+This project investigates how weather conditions—specifically temperature and precipitation—impact the frequency and severity of traffic accidents in Toronto between 2006 and 2023. Using data from the Toronto Police Service and ERA5 reanalysis archive, we merged accident records with historical weather data to assess correlations and predictive potential.
 
 [📄 **Download Full Report (PDF)**](Final.pdf)
 
 ---
 
+## Table – Summary of Dataset
+```{r table_dataset_summary}
+df_final <- read.csv("data/df_final.csv")
+tibble(
+  "Total Observations" = nrow(df_final),
+  "Date Range" = paste(min(df_final$DATE), "to", max(df_final$DATE)),
+  "Variables" = ncol(df_final)
+) %>%
+  kable("html", caption = "Table 1: Dataset Overview") %>%
+  kable_styling(full_width = FALSE)
+```
+
+---
+
 # Key Findings
 
-- **Summer peak:** Accident counts rise significantly during summer, especially in **August**.
-- **Rainy days:** Fewer accidents occur on rainy days, but the **injury severity distribution** remains nearly unchanged.
-- **Temperature effects:** Higher temperatures are **mildly associated** with increased accident counts.
-- **Prediction limits:** Weather features alone show **limited predictive power** for injury severity in machine learning models.
+- **Seasonality:** Accidents peak in warmer months, especially August.
+- **Temperature:** A statistically significant but modest positive relationship exists between temperature and accident frequency.
+- **Precipitation:** Rainy days see fewer accidents, but injury severity is similar to dry days.
+- **Prediction:** Random Forest models using only weather and surface conditions yield limited predictive power for injury severity.
 
 ---
 
-# Methods
+# Highlighted Visualizations
 
-We used:
+## Fig 1 – Monthly Accident Totals
+```{r fig1_monthly_accidents}
+df_final %>%
+  mutate(MONTH = lubridate::month(DATE, label = TRUE, locale = "en_US")) %>% 
+  group_by(MONTH) %>%
+  summarise(Total_Accidents = n()) %>%
+  ggplot(aes(x = MONTH, y = Total_Accidents, fill = MONTH)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Monthly Accident Totals", x = "Month", y = "Number of Accidents") +
+  theme_minimal()
+```
 
-- **Descriptive statistics** to identify temporal and environmental patterns  
-- **Interactive mapping** with Leaflet to explore spatial clustering  
-- **Plotly visualizations** to analyze severity trends by weather condition  
-- **Random Forest classification** and **GAM models** to test predictive power of weather variables on injury severity  
+Accidents increase in summer months, peaking in August. This may reflect higher road usage.
 
 ---
 
-# Limitations
+## Fig 2 – Temperature vs Fatalities
+```{r fig2_temp_fatal}
+df_final %>%
+  filter(FATAL_NO > 0) %>%
+  mutate(TEMP_AVG = (TEMP_MIN + TEMP_MAX) / 2) %>%
+  mutate(FATAL_TYPE = ifelse(FATAL_NO >= 30, "High Fatal", "Low Fatal")) %>%
+  ggplot(aes(x = TEMP_AVG, y = FATAL_NO, color = FATAL_TYPE)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Fig 2b - Stratified Fatal Accidents by Temperature",
+       x = "Average Temperature (°C)",
+       y = "Number of Fatalities") +
+  theme_minimal()
+```
 
-- Traffic volume and driver behavior data were not available  
-- Time-of-day effects and road type were not fully captured  
-- Weather alone may be insufficient to model **accident severity**, suggesting the need for additional behavioral or contextual variables  
+There is a mild positive association between temperature and the number of fatalities.
+
+---
+
+## Fig 3 – Injury Severity by Rain
+```{r fig3_injury_rain}
+ggplot(df_final, aes(x = RAINY_DAY, fill = INJURY)) +
+  geom_bar(position = "stack") +
+  labs(title = "Injury Levels on Rainy vs Dry Days",
+       x = "Weather Condition", y = "Accident Count") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set2")
+```
+
+Rainy days have fewer total accidents but similar injury severity distribution as dry days.
+
+---
+
+## Fig 4 – Variable Importance (Random Forest)
+```{r fig4_varimp, message=FALSE}
+library(randomForest)
+rf_model <- randomForest(INJURY_BIN ~ TEMP_MIN + TEMP_MAX + PRECIPITATION + VISIBILITY + LIGHT + RDSFCOND + RAINY_DAY,
+                         data = df_final %>% filter(INJURY != "Unknown") %>% mutate(INJURY_BIN = as.factor(ifelse(INJURY %in% c("Fatal", "Major"), "Severe", "NotSevere"))),
+                         ntree = 100, importance = TRUE)
+varImpPlot(rf_model, main = "Variable Importance from Random Forest")
+```
+
+This suggests that while temperature-related variables are important structurally in the model, rain indicators and visibility are more directly tied to predictive accuracy.
 
 ---
 
 # Conclusion
 
-This project highlights that while weather does influence accident frequency, especially seasonally, its impact on injury severity is more subtle. Better predictive performance will likely require more detailed data beyond environmental conditions.
+While weather conditions do show some correlation with traffic accident frequency and severity, the predictive power of weather-related variables alone is limited. Future work should consider integrating traffic volume, driver behavior, and spatial patterns to improve predictive accuracy.
+
+Visit the [interactive visualizations page](visualizations.html) for dynamic maps and filterable charts.

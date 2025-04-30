@@ -9,6 +9,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
 
 
+<meta name="author" content="Kaiwen Zhang" />
 
 
 <title>Weather and Traffic Accidents in Toronto</title>
@@ -32,6 +33,8 @@
 <script src="site_libs/navigation-1.1/tabsets.js"></script>
 <link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
 <script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+<script src="site_libs/kePrint-0.0.1/kePrint.js"></script>
+<link href="site_libs/lightable-0.0.1/lightable.css" rel="stylesheet" />
 
 <style type="text/css">
   code{white-space: pre-wrap;}
@@ -262,77 +265,116 @@ $(document).ready(function () {
 
 <h1 class="title toc-ignore">Weather and Traffic Accidents in
 Toronto</h1>
+<h4 class="author">Kaiwen Zhang</h4>
 
 </div>
 
 
-<div id="overview" class="section level1">
-<h1>Overview</h1>
-<p>How do weather conditions affect road safety in a major urban
-environment?<br />
-This project investigates the relationship between <strong>weather
-variables</strong> (temperature, precipitation, visibility) and
-<strong>traffic accident frequency and severity</strong> in Toronto from
-2006 to 2023. The study integrates historical weather data with accident
-reports from the Toronto Police Service.</p>
+<div id="project-overview" class="section level1">
+<h1>Project Overview</h1>
+<p>This project investigates how weather conditions—specifically
+temperature and precipitation—impact the frequency and severity of
+traffic accidents in Toronto between 2006 and 2023. Using data from the
+Toronto Police Service and ERA5 reanalysis archive, we merged accident
+records with historical weather data to assess correlations and
+predictive potential.</p>
 <p><a href="Final.pdf">📄 <strong>Download Full Report
 (PDF)</strong></a></p>
 <hr />
+<div id="table-summary-of-dataset" class="section level2">
+<h2>Table – Summary of Dataset</h2>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<caption>
+Table 1: Dataset Overview
+</caption>
+<thead>
+<tr>
+<th style="text-align:right;">
+Total Observations
+</th>
+<th style="text-align:left;">
+Date Range
+</th>
+<th style="text-align:right;">
+Variables
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+14711
+</td>
+<td style="text-align:left;">
+2006-01-01 to 2023-12-28
+</td>
+<td style="text-align:right;">
+15
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+</div>
 </div>
 <div id="key-findings" class="section level1">
 <h1>Key Findings</h1>
 <ul>
-<li><strong>Summer peak:</strong> Accident counts rise significantly
-during summer, especially in <strong>August</strong>.</li>
-<li><strong>Rainy days:</strong> Fewer accidents occur on rainy days,
-but the <strong>injury severity distribution</strong> remains nearly
-unchanged.</li>
-<li><strong>Temperature effects:</strong> Higher temperatures are
-<strong>mildly associated</strong> with increased accident counts.</li>
-<li><strong>Prediction limits:</strong> Weather features alone show
-<strong>limited predictive power</strong> for injury severity in machine
-learning models.</li>
+<li><strong>Seasonality:</strong> Accidents peak in warmer months,
+especially August.</li>
+<li><strong>Temperature:</strong> A statistically significant but modest
+positive relationship exists between temperature and accident
+frequency.</li>
+<li><strong>Precipitation:</strong> Rainy days see fewer accidents, but
+injury severity is similar to dry days.</li>
+<li><strong>Prediction:</strong> Random Forest models using only weather
+and surface conditions yield limited predictive power for injury
+severity.</li>
 </ul>
 <hr />
 </div>
-<div id="methods" class="section level1">
-<h1>Methods</h1>
-<p>We used:</p>
-<ul>
-<li><strong>Descriptive statistics</strong> to identify temporal and
-environmental patterns<br />
-</li>
-<li><strong>Interactive mapping</strong> with Leaflet to explore spatial
-clustering<br />
-</li>
-<li><strong>Plotly visualizations</strong> to analyze severity trends by
-weather condition<br />
-</li>
-<li><strong>Random Forest classification</strong> and <strong>GAM
-models</strong> to test predictive power of weather variables on injury
-severity</li>
-</ul>
+<div id="highlighted-visualizations" class="section level1">
+<h1>Highlighted Visualizations</h1>
+<div id="fig-1-monthly-accident-totals" class="section level2">
+<h2>Fig 1 – Monthly Accident Totals</h2>
+<p><img src="index_files/figure-html/fig1_monthly_accidents-1.png" width="672" /></p>
+<p>Accidents increase in summer months, peaking in August. This may
+reflect higher road usage.</p>
 <hr />
 </div>
-<div id="limitations" class="section level1">
-<h1>Limitations</h1>
-<ul>
-<li>Traffic volume and driver behavior data were not available<br />
-</li>
-<li>Time-of-day effects and road type were not fully captured<br />
-</li>
-<li>Weather alone may be insufficient to model <strong>accident
-severity</strong>, suggesting the need for additional behavioral or
-contextual variables</li>
-</ul>
+<div id="fig-2-temperature-vs-fatalities" class="section level2">
+<h2>Fig 2 – Temperature vs Fatalities</h2>
+<p><img src="index_files/figure-html/fig2_temp_fatal-1.png" width="672" /></p>
+<p>There is a mild positive association between temperature and the
+number of fatalities.</p>
 <hr />
+</div>
+<div id="fig-3-injury-severity-by-rain" class="section level2">
+<h2>Fig 3 – Injury Severity by Rain</h2>
+<p><img src="index_files/figure-html/fig3_injury_rain-1.png" width="672" /></p>
+<p>Rainy days have fewer total accidents but similar injury severity
+distribution as dry days.</p>
+<hr />
+</div>
+<div id="fig-4-variable-importance-random-forest"
+class="section level2">
+<h2>Fig 4 – Variable Importance (Random Forest)</h2>
+<p><img src="index_files/figure-html/fig4_varimp-1.png" width="672" /></p>
+<p>This suggests that while temperature-related variables are important
+structurally in the model, rain indicators and visibility are more
+directly tied to predictive accuracy.</p>
+<hr />
+</div>
 </div>
 <div id="conclusion" class="section level1">
 <h1>Conclusion</h1>
-<p>This project highlights that while weather does influence accident
-frequency, especially seasonally, its impact on injury severity is more
-subtle. Better predictive performance will likely require more detailed
-data beyond environmental conditions.</p>
+<p>While weather conditions do show some correlation with traffic
+accident frequency and severity, the predictive power of weather-related
+variables alone is limited. Future work should consider integrating
+traffic volume, driver behavior, and spatial patterns to improve
+predictive accuracy.</p>
+<p>Visit the <a href="visualizations.html">interactive visualizations
+page</a> for dynamic maps and filterable charts.</p>
 </div>
 
 
