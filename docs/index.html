@@ -266,46 +266,73 @@ Toronto</h1>
 </div>
 
 
-<div id="project-overview" class="section level1">
-<h1>Project Overview</h1>
-<p>This study explores how weather conditions impact traffic accidents
-in Toronto from 2006 to 2023, focusing on temperature and precipitation
-effects.</p>
-<p>Key findings: - Accident counts peak in summer months, especially
-August. - Rainy days see fewer accidents, but injury severity
-distribution remains similar. - Weather variables alone are insufficient
-for accurate prediction of accident severity.</p>
+<div id="overview" class="section level1">
+<h1>Overview</h1>
+<p>How do weather conditions affect road safety in a major urban
+environment?<br />
+This project investigates the relationship between <strong>weather
+variables</strong> (temperature, precipitation, visibility) and
+<strong>traffic accident frequency and severity</strong> in Toronto from
+2006 to 2023. The study integrates historical weather data with accident
+reports from the Toronto Police Service.</p>
 <p><a href="Final.pdf">📄 <strong>Download Full Report
 (PDF)</strong></a></p>
+<hr />
 </div>
-<div id="introduction" class="section level1">
-<h1>Introduction</h1>
-<p>Weather conditions such as rain, snow, and temperature extremes can
-significantly impact road safety. In this project, we combined accident
-records from the Toronto Police Service with historical weather data to
-explore how environmental factors correlate with accident frequency and
-severity.</p>
-</div>
-<div id="main-findings" class="section level1">
-<h1>Main Findings</h1>
+<div id="key-findings" class="section level1">
+<h1>Key Findings</h1>
 <ul>
-<li><strong>Monthly Accident Trends:</strong> More accidents occur
-during warmer months.</li>
-<li><strong>Temperature vs Fatalities:</strong> Higher temperatures show
-a slight increase in accident numbers.</li>
-<li><strong>Weather and Injury Severity:</strong> Rain reduces the
-number of accidents but not injury severity.</li>
-<li><strong>Modeling:</strong> Random Forest models show limited
-predictive power using only weather variables.</li>
+<li><strong>Summer peak:</strong> Accident counts rise significantly
+during summer, especially in <strong>August</strong>.</li>
+<li><strong>Rainy days:</strong> Fewer accidents occur on rainy days,
+but the <strong>injury severity distribution</strong> remains nearly
+unchanged.</li>
+<li><strong>Temperature effects:</strong> Higher temperatures are
+<strong>mildly associated</strong> with increased accident counts.</li>
+<li><strong>Prediction limits:</strong> Weather features alone show
+<strong>limited predictive power</strong> for injury severity in machine
+learning models.</li>
 </ul>
+<hr />
+</div>
+<div id="methods" class="section level1">
+<h1>Methods</h1>
+<p>We used:</p>
+<ul>
+<li><strong>Descriptive statistics</strong> to identify temporal and
+environmental patterns<br />
+</li>
+<li><strong>Interactive mapping</strong> with Leaflet to explore spatial
+clustering<br />
+</li>
+<li><strong>Plotly visualizations</strong> to analyze severity trends by
+weather condition<br />
+</li>
+<li><strong>Random Forest classification</strong> and <strong>GAM
+models</strong> to test predictive power of weather variables on injury
+severity</li>
+</ul>
+<hr />
 </div>
 <div id="limitations" class="section level1">
 <h1>Limitations</h1>
 <ul>
-<li>Traffic volume, driver behavior, and other contextual factors were
-not available in the dataset, which likely also affect accident
-severity.</li>
+<li>Traffic volume and driver behavior data were not available<br />
+</li>
+<li>Time-of-day effects and road type were not fully captured<br />
+</li>
+<li>Weather alone may be insufficient to model <strong>accident
+severity</strong>, suggesting the need for additional behavioral or
+contextual variables</li>
 </ul>
+<hr />
+</div>
+<div id="conclusion" class="section level1">
+<h1>Conclusion</h1>
+<p>This project highlights that while weather does influence accident
+frequency, especially seasonally, its impact on injury severity is more
+subtle. Better predictive performance will likely require more detailed
+data beyond environmental conditions.</p>
 </div>
 
 

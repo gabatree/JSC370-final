@@ -1,6 +1,6 @@
-name: "Weather and Traffic Accidents"
+name: "weather-traffic-toronto"
 navbar:
-  title: "Toronto Traffic Safety"
+  title: "Weather & Traffic Accidents"
   left:
     - text: "Home"
       href: index.html

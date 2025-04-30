@@ -3,28 +3,43 @@ title: "Weather and Traffic Accidents in Toronto"
 output: html_document
 ---
 
-# Project Overview
+# Overview
 
-This study explores how weather conditions impact traffic accidents in Toronto from 2006 to 2023, focusing on temperature and precipitation effects.
-
-Key findings:
-- Accident counts peak in summer months, especially August.
-- Rainy days see fewer accidents, but injury severity distribution remains similar.
-- Weather variables alone are insufficient for accurate prediction of accident severity.
+How do weather conditions affect road safety in a major urban environment?  
+This project investigates the relationship between **weather variables** (temperature, precipitation, visibility) and **traffic accident frequency and severity** in Toronto from 2006 to 2023. The study integrates historical weather data with accident reports from the Toronto Police Service.
 
 [📄 **Download Full Report (PDF)**](Final.pdf)
 
-# Introduction
+---
 
-Weather conditions such as rain, snow, and temperature extremes can significantly impact road safety. In this project, we combined accident records from the Toronto Police Service with historical weather data to explore how environmental factors correlate with accident frequency and severity.
+# Key Findings
 
-# Main Findings
+- **Summer peak:** Accident counts rise significantly during summer, especially in **August**.
+- **Rainy days:** Fewer accidents occur on rainy days, but the **injury severity distribution** remains nearly unchanged.
+- **Temperature effects:** Higher temperatures are **mildly associated** with increased accident counts.
+- **Prediction limits:** Weather features alone show **limited predictive power** for injury severity in machine learning models.
 
-- **Monthly Accident Trends:** More accidents occur during warmer months.
-- **Temperature vs Fatalities:** Higher temperatures show a slight increase in accident numbers.
-- **Weather and Injury Severity:** Rain reduces the number of accidents but not injury severity.
-- **Modeling:** Random Forest models show limited predictive power using only weather variables.
+---
+
+# Methods
+
+We used:
+
+- **Descriptive statistics** to identify temporal and environmental patterns  
+- **Interactive mapping** with Leaflet to explore spatial clustering  
+- **Plotly visualizations** to analyze severity trends by weather condition  
+- **Random Forest classification** and **GAM models** to test predictive power of weather variables on injury severity  
+
+---
 
 # Limitations
 
-- Traffic volume, driver behavior, and other contextual factors were not available in the dataset, which likely also affect accident severity.
+- Traffic volume and driver behavior data were not available  
+- Time-of-day effects and road type were not fully captured  
+- Weather alone may be insufficient to model **accident severity**, suggesting the need for additional behavioral or contextual variables  
+
+---
+
+# Conclusion
+
+This project highlights that while weather does influence accident frequency, especially seasonally, its impact on injury severity is more subtle. Better predictive performance will likely require more detailed data beyond environmental conditions.

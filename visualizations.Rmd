@@ -2,7 +2,7 @@
 title: "Interactive Visualizations"
 output: html_document
 ---
-```{r, message=FALSE, warning=FALSE}
+```{r,echo = FALSE,warning=FALSE, message=FALSE, error=FALSE}
 library(dplyr)
 library(plotly)
 library(leaflet)
