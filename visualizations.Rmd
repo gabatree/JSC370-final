@@ -54,10 +54,8 @@ This progressive zoom interaction provides layered insights, from macro traffic 
 
 ## 2.Distribution of Accident Injury Types by Environmental Conditions
 ```{r,echo = FALSE,warning=FALSE, message=FALSE, error=FALSE}
-# 创建 SharedData 让 plot 和 filters 绑定
 shared_df <- SharedData$new(df_final)
 
-# 添加交互 filter 控件
 bscols(
   widths = c(12),
   filter_select("lightfilter", "Select Light Condition:", shared_df, ~LIGHT, multiple = TRUE),
@@ -65,7 +63,6 @@ bscols(
   filter_select("roadfilter", "Select Road Surface:", shared_df, ~RDSFCOND, multiple = TRUE)
 )
 
-# 画图：横轴为 INJURY 分类变量
 plot_ly(shared_df,
         x = ~INJURY,
         type = "histogram",
@@ -88,7 +85,6 @@ monthly_data <- df_final %>%
   group_by(Month, INJURY) %>%
   summarise(Count = n(), .groups = "drop")
 
-# 绘制交互多线图
 plot_ly(monthly_data,
         x = ~Month,
         y = ~Count,
