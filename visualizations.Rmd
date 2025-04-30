@@ -9,7 +9,6 @@ library(leaflet)
 library(crosstalk)
 library(lubridate)
 ```
-# Interactive Visualizations
 ```{r,echo = FALSE,warning=FALSE, message=FALSE, error=FALSE}
 invisible(Sys.setlocale("LC_TIME", "C"))
 df_final <- read.csv("data/df_final.csv")
